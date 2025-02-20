@@ -7,12 +7,19 @@ const productSchema = mongoose.Schema({
         ref:"User"
     },
     title:{
+        type: String,
+        require: true,
+        trime:true
+    },
+    slug:{
         type:String,
-        require: true
+        unique:true,
+
     },
     description:{
         type:String,
-        unique: true
+        unique: true,
+        trime:true
     },
     image:{
         type:Object,
@@ -44,8 +51,9 @@ const productSchema = mongoose.Schema({
         type:mongoose.Schema.Types.ObjectId,
         ref:"User"
     },
+   
     
-})
+},{ timestamps: true });
 
 const product = mongoose.model("Product", productSchema)
 module.exports = product;

@@ -3,9 +3,13 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const path = require("path");
 const cookieParser = require("cookie-parser");
 const userRoute = require("./routes/userRoute");
+const biddingRoute = require("./routes/biddingRoute");
 const productRoute = require("./routes/productRoute");
+const categoryRoute = require("./routes/categoryRoute");
+
 const errorHandler = require("./middleware/errorMiddleWare");
 
 const app = express();
@@ -20,7 +24,7 @@ app.use(
 app.use(bodyParser.json());
 
 app.use(cors({
-    origin: [ "http://localhost:3000", "onlineauction.com"],
+    origin: [ "http://localhost:5173", "onlineauction.com"],
     credentials: true,
     })
 );
@@ -28,8 +32,12 @@ app.use(cors({
 const PORT = process.env.PORT || 5000;
 app.use("/api/users", userRoute);
 app.use("/api/product", productRoute);
+app.use("/api/bidding", biddingRoute);
+app.use("/api/category", categoryRoute);
 
 app.use(errorHandler);
+app.use("/uploads" , express.static(path.join(__dirname, "upload")));
+
 
 app.get("/", (req, res) => {
     res.send("home page")

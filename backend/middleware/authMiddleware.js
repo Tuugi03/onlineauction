@@ -36,6 +36,7 @@ const admin = (req, res, next) =>{
         throw new Error("zowhon admin erh");
     }
 }
+
 module.exports = {
     protect,
     admin

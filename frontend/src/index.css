@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+.header {
+    background: linear-gradient(90deg, #e94c2a, #feb47b);
+    color: white;
+    padding: 16px 32px;
+  }
+.footer{
+    background: linear-gradient(90deg, #e94c2a, #feb47b);
+    color: white;
+    padding: 16px 32px;
+
+  }
+  .header a {
+    color: #5D4037 !important;
+    font-weight: bold;
+    transition: color 0.3s;
+  }
+  .header a:hover {
+    color: white !important;
+  }
+.card {
+  transition: transform 0.3s;
+  cursor: pointer;
+}
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+.btn-primary {
+  background-color: #4e73df;
+  border-color: #4e73df;
+}

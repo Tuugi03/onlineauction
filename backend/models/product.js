@@ -47,7 +47,7 @@ const productSchema = mongoose.Schema({
     weight:{type:Number},
     Verified:{type:Boolean, default:false},
     Sold:{type:Boolean, default:false},
-    screenXoldTo: {
+    SoldTo: {
         type:mongoose.Schema.Types.ObjectId,
         ref:"User"
     },

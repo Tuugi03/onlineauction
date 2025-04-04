@@ -44,42 +44,48 @@ const registerUser = asyncHandler(async (req, res)=>{
         res.status(400);
         throw new Error("Буруу өгөгдөл");
     }
-});
-const loginUser = asyncHandler(async (req, res)=> {
-    const {email , password} = req.body;
-    if (!email || !password){
-        res.status(400);
-        throw new Error("Мэдээллүүдээ бүрэн гүйцэл бөглөнө үү");
-    }
-
-    const user = await User.findOne({email});
-    if(!user) {
-        res.status(404);
-        throw new Error("Хэрэглэгч олдсонгүй мэдээлэлээ шалгана уу");
-    }
-
-    const passwordIsCorrect = await bcrypt.compare(password, user.password);
-
-    const token = generateToken(user._id);
-    res.cookie("token" , token,{
-        path:"/",
-        httpOnly:true,
-        expires: new Date(Date.now() + 1000 * 86400),
-        sameSite:"none",
-        secure: true,
-    });
-
-    if(user && passwordIsCorrect){
-        const {_id, name, email, photo, role} = user;
-        res.status(201).json({_id, name, email, photo, role});
-
-    }else{
-        res.status(400);
-        throw new Error("email эсвэл нууц үг буруу байна та дахин оролдож үзнэ үү");
-    }
-
+});const loginUser = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
     
-});
+    if (!email || !password) {
+      res.status(400);
+      throw new Error("Мэдээллүүдээ бүрэн гүйцэл бөглөнө үү");
+    }
+  
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      res.status(401); 
+      throw new Error("Хэрэглэгч олдсонгүй мэдээлэлээ шалгана уу");
+    }
+  
+    const passwordIsCorrect = await bcrypt.compare(password, user.password);
+  
+    if (!passwordIsCorrect) {
+      res.status(401);
+      throw new Error("Email эсвэл нууц үг буруу байна");
+    }
+  
+    const token = generateToken(user._id);
+    
+    res.cookie("token", token, {
+      path: "/",
+      httpOnly: true,
+      expires: new Date(Date.now() + 1000 * 86400), 
+      sameSite: "none",
+      secure: true,
+    });
+  
+    const { _id, name, photo, role } = user;
+    res.status(200).json({ 
+      _id,
+      name,
+      email: user.email,
+      photo,
+      role,
+      token 
+    });
+  });
 const loginstatus = asyncHandler(async (req, res)=> {
     const token = req.cookies.token;
     if(!token){

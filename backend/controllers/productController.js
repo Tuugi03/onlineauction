@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const Product = require("../models/product");
 const slugify = require("slugify");
 const cloudinary = require("cloudinary").v2;
+const mongoose = require('mongoose');
 
 const postProduct = asyncHandler(async (req, res) => {
 
@@ -49,9 +50,9 @@ const postProduct = asyncHandler(async (req, res) => {
         }
         fileData = {
             fileName: req.file.originalname,
-            filePath: uploadFile.secure_url,   // Changed from uploadedFile to uploadFile
+            filePath: uploadFile.secure_url,   
             fileType: req.file.mimetype,
-            public_id: uploadFile.public_id,   // Changed from uploadedFile to uploadFile
+            public_id: uploadFile.public_id,   
         };
     }
 
@@ -75,6 +76,7 @@ const postProduct = asyncHandler(async (req, res) => {
 });
 
 const getAllProducts = asyncHandler(async (req, res) => {
+    
     const products = await Product.find({}).sort("-createdAt").populate("user");
     res.json(products);
 });
@@ -185,12 +187,17 @@ const updateProduct = asyncHandler(async (req, res) => {
     updateProduct,
    );
 });
-
 const getAllProductsUser = asyncHandler(async (req, res) => {
+
     const userId = req.user._id;
-    const products = await Product.find({ user: userId}).sort("-createdAt").populate("user");
+
+    const products = await Product.find({ User: userId })
+      .sort("-createdAt")
+      .populate("user");
+
     res.json(products);
 });
+
 
 const getProduct = asyncHandler(async (req, res) => {
     const { id } = req.params;

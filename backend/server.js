@@ -1,56 +1,102 @@
 const dotenv = require('dotenv').config();
 const express = require("express");
 const mongoose = require("mongoose");
-const bodyParser = require("body-parser");
 const cors = require("cors");
 const path = require("path");
 const cookieParser = require("cookie-parser");
+const http = require('http');
+const socketio = require('socket.io');
+const jwt = require('jsonwebtoken');
+const Product = require('./models/product');
+const BiddingProduct = require('./models/bidding');
 const userRoute = require("./routes/userRoute");
 const biddingRoute = require("./routes/biddingRoute");
 const productRoute = require("./routes/productRoute");
 const categoryRoute = require("./routes/categoryRoute");
-
 const errorHandler = require("./middleware/errorMiddleWare");
 
 const app = express();
 
-app.use(express.json());
 app.use(cookieParser());
-app.use(
-    express.urlencoded({
-        extended: true,
-    })
-);
-app.use(bodyParser.json());
 
-app.use(cors({
-    origin: [ "http://localhost:5173", "onlineauction.com"],
-    credentials: true,
-    })
-);
+const corsOptions = {
+  origin: ["http://localhost:5173"],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
 
-const PORT = process.env.PORT || 5000;
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const server = http.createServer(app);
+
+const io = socketio(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('New client connected');
+
+  socket.on('placeBid', async ({ productId, price, token }) => {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      const product = await Product.findById(productId);
+      if (!product || product.isSold) {
+        socket.emit('bidError', {
+          productId,
+          message: 'Энэ бараанд үнэ санал болгох боломжгүй'
+        });
+        return;
+      }
+
+      const biddingProduct = await BiddingProduct.create({
+        user: decoded.id,
+        product: productId,
+        price
+      });
+
+      product.currentBid = price;
+      await product.save();
+
+      io.emit('bidUpdate', product);
+
+    } catch (error) {
+      socket.emit('bidError', {
+        productId,
+        message: error.message || 'Үнийн санал өгөхөд алдаа гарлаа'
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+  });
+});
+
 app.use("/api/users", userRoute);
 app.use("/api/product", productRoute);
 app.use("/api/bidding", biddingRoute);
 app.use("/api/category", categoryRoute);
 
+app.use("/uploads", express.static(path.join(__dirname, "upload")));
+
+
+
 app.use(errorHandler);
-app.use("/uploads" , express.static(path.join(__dirname, "upload")));
 
-
-app.get("/", (req, res) => {
-    res.send("home page")
-});
-
-mongoose
-    .connect(process.env.DATABASE_CLOUD, {
-    })
-    .then(() => {
-        app.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
-        });
-    })
-    .catch((err) => {
-        console.log(err);
+mongoose.connect(process.env.DATABASE_CLOUD)
+  .then(() => {
+    server.listen(process.env.PORT || 5000, () => {
+      console.log(`Server running on port ${process.env.PORT || 5000}`);
     });
+  })
+  .catch((err) => {
+    console.error('Database connection error:', err);
+    process.exit(1);
+  });

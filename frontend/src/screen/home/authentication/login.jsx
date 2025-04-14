@@ -63,6 +63,7 @@ export const Login = () => {
       if (response.status === 200) {
         localStorage.setItem('user', JSON.stringify(response.data));
         console.log("amjilttai");
+        navigate("/");
       }
     } catch (error) {
       console.error('Алдаа:', error);

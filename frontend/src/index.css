@@ -2,7 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Image upload area styles */
+.upload-area {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 2rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-height: 250px;
+}
 
+.upload-area:hover {
+  border-color: #0d6efd;
+  background-color: #f8f9fa;
+}
+
+.image-preview-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Form input enhancements */
+.form-control, .form-select {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+}
+
+.input-group-text {
+  background-color: #f8f9fa;
+}
+
+/* Button styles */
+.btn-lg {
+  padding: 0.75rem 1.5rem;
+  font-size: 1.1rem;
+}
+
+/* Card styling */
+.card {
+  border-radius: 0.75rem;
+}
 .header {
     background: linear-gradient(90deg, #e94c2a, #feb47b);
     color: white;

@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import React from 'react';
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Home, Layout, Login, Product, Register } from './routes';
+import { Home, Layout, Login, Product, Register, Profile } from './routes';
+
+
 function App() {
   return (
     <>
@@ -24,6 +27,11 @@ function App() {
         <Route path="/allproduct" element={
         <Layout>
           <Product />
+        </Layout>
+        }/>
+        <Route path="/profile" element={
+        <Layout>
+          <Profile />
         </Layout>
         }/>
       </Routes>

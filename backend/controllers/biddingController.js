@@ -9,46 +9,72 @@ const getBiddingHistory = asyncHandler(async (req, res) => {
   
     res.status(200).json(biddingHistory);
   });
-
-const placeBid = asyncHandler(async (req, res) => {
+  const placeBid = asyncHandler(async (req, res) => {
     const { productId, price } = req.body;
     const userId = req.user.id;
 
+    if (!productId || !price) {
+        return res.status(400).json({ message: "Бүх талбарыг бөглөнө үү" });
+    }
+
     const product = await Product.findById(productId);
-    // if(product.is){
-
-    // }
-    if(!product || product.isSold === true){
-        res.status(400)
-        throw new Error("Энэ бараанд үнэ санал болгох боломжгүй");
-
+    if (!product || product.isSold) {
+        return res.status(400).json({ message: "Энэ бараанд үнэ санал болгох боломжгүй" });
     }
 
-    const existinguserBid = await BiddingProduct.findOne({user:userId, product: productId});
-    if(existinguserBid){
-        if(price <= existinguserBid.price){
-            res.status(400);
-            throw new Error("Та өмнөх үнийн дүнгээс өндөр үнийн дүн байршуулна уу");
-
+    try {
+        const existingUserBid = await BiddingProduct.findOne({ 
+            user: userId, 
+            product: productId 
+        });
+        
+        if (existingUserBid) {
+            if (price <= existingUserBid.price) {
+                return res.status(400).json({ 
+                    message: "Та өмнөх үнийн дүнгээс өндөр үнийн дүн байршуулна уу" 
+                });
+            }
+            existingUserBid.price = price;
+            await existingUserBid.save();
+            
+            product.currentBid = price;
+            await product.save();
+            
+            return res.status(200).json({ 
+                biddingProduct: existingUserBid,
+                product 
+            });
         }
-        existinguserBid.price = price;
-        await existinguserBid.save();
-        res.status(200).json({BiddingProduct: existinguserBid});
 
-    }else{
-        const highestBid = await BiddingProduct.findOne({ product: productId }).sort({price: -1});
-        if(highestBid && price <= highestBid.price){
-            res.status(400);
-            throw new Error("Та өмнөх үнийн дүнгээс өндөр үнийн дүн байршуулна уу");
+        const highestBid = await BiddingProduct.findOne({ product: productId })
+            .sort({ price: -1 });
+        
+        if (highestBid && price <= highestBid.price) {
+            return res.status(400).json({ 
+                message: "Та өмнөх үнийн дүнгээс өндөр үнийн дүн байршуулна уу" 
+            });
         }
+
+        const biddingProduct = await BiddingProduct.create({
+            user: userId,
+            product: productId,
+            price,
+        });
+
+        product.currentBid = price;
+        await product.save();
+
+        res.status(200).json({
+            biddingProduct,
+            product
+        });
+
+    } catch (error) {
+        console.error('Bidding error:', error);
+        res.status(500).json({ 
+            message: "Үнийн санал өгөхөд алдаа гарлаа" 
+        });
     }
-
-    const biddingProduct = await BiddingProduct.create({
-        user: userId,
-        product: productId,
-        price,
-    });
-    res.status(200).json(biddingProduct);
 });
 
 const sellProduct = asyncHandler(async (req, res) => {

@@ -74,3 +74,40 @@
   background-color: #4e73df;
   border-color: #4e73df;
 }
+.home-page {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.hero-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 0 0 20px 20px;
+}
+
+.search-box {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.auction-card {
+  transition: transform 0.3s ease;
+  border-radius: 15px;
+}
+
+.auction-card:hover {
+  transform: translateY(-5px);
+}
+
+.category-card {
+  transition: all 0.3s ease;
+  border-radius: 10px;
+}
+
+.category-card:hover {
+  background-color: #f8f9fa;
+  transform: scale(1.05);
+}
+
+.badge {
+  font-size: 0.8rem;
+  padding: 5px 10px;
+  border-radius: 10px;
+}

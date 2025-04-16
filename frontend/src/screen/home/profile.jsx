@@ -68,10 +68,8 @@ export const Profile = () => {
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     
-    // Handling file uploads differently
     if (name === 'image') {
       if (files && files[0]) {
-        // Quick check if it's an image
         if (!files[0].type.startsWith('image/')) {
           alert('Please upload an image file');
           return;
@@ -205,15 +203,13 @@ export const Profile = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="col-md-9 col-lg-10 px-4">
           {activeTab === 'addProduct' && (
             <div className="card border-0 shadow-sm">
               <div className="card-body">
-                <h4 className="card-title text-center mb-4">List a New Item</h4>
+                <h4 className="card-title text-center mb-4">Бараа нэмэх</h4>
                 <form onSubmit={handleSubmit} encType="multipart/form-data">
                   <div className="row g-3">
-                    {/* Required fields */}
                     {['title', 'description', 'price'].map(field => (
                       <div className="col-md-6" key={field}>
                         <label className="form-label">{field.charAt(0).toUpperCase() + field.slice(1)}*</label>
@@ -240,7 +236,6 @@ export const Profile = () => {
                       </div>
                     ))}
 
-                    {/* Optional fields */}
                     {['category', 'height', 'length', 'width', 'weight'].map(field => (
                       <div className="col-md-6" key={field}>
                         <label className="form-label">{field.charAt(0).toUpperCase() + field.slice(1)}</label>
@@ -254,9 +249,8 @@ export const Profile = () => {
                       </div>
                     ))}
 
-                    {/* Auction specific fields */}
                     <div className="col-md-6">
-                      <label className="form-label">Bid Threshold (optional)</label>
+                      <label className="form-label">Таны хүссэн үнэ (Бөглөгхгүй байж болно)</label>
                       <input
                         type="number"
                         className="form-control"
@@ -269,7 +263,7 @@ export const Profile = () => {
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label">Auction End Date*</label>
+                      <label className="form-label">Дуудлага худалдааны дуусах хугацаа</label>
                       <input
                         type="datetime-local"
                         className="form-control"
@@ -281,9 +275,8 @@ export const Profile = () => {
                       />
                     </div>
 
-                    {/* Image upload */}
                     <div className="col-12">
-                      <label className="form-label">Product Image</label>
+                      <label className="form-label">Зураг</label>
                       <input
                         type="file"
                         className="form-control"
@@ -300,7 +293,7 @@ export const Profile = () => {
                         className="btn btn-primary w-100"
                         disabled={uploading}
                       >
-                        {uploading ? 'Uploading...' : 'List Item'}
+                        {uploading ? 'Uploading...' : 'Нэмэх'}
                       </button>
                     </div>
                   </div>
@@ -313,7 +306,7 @@ export const Profile = () => {
             <div className="card border-0 shadow-sm">
               <div className="card-body">
                 <div className="d-flex justify-content-between align-items-center mb-4">
-                  <h4 className="card-title mb-0">My Listed Items</h4>
+                  <h4 className="card-title mb-0">Миний бараанууд</h4>
                   <span className="badge bg-secondary">{products.length} items</span>
                 </div>
 
@@ -366,7 +359,7 @@ export const Profile = () => {
                   </div>
                 ) : (
                   <div className="text-center py-5">
-                    <p className="text-muted">You haven't listed any items yet</p>
+                    <p className="text-muted">Одоогоор бараа байхгүй байна</p>
                     <button 
                       className="btn btn-primary"
                       onClick={() => setActiveTab('addProduct')}

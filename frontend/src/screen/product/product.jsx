@@ -187,10 +187,9 @@ export const Product = () => {
       <h2 className="mb-4 text-center">Бараанууд ({filteredProducts.length})</h2>
       
       <div className="row">
-        {/* Left Sidebar - Filters */}
         <div className="col-md-3">
           <div className="card mb-4 sticky-top" style={{ top: '20px' }}>
-            <div className="card-header bg-primary text-white">
+          <div className="card-header" style={{ backgroundColor: '#e94c2a', color: 'white' }}>
               <h5 className="mb-0">Шүүлтүүр</h5>
             </div>
             <div className="card-body">

@@ -32,7 +32,7 @@ export const Product = () => {
     const fetchData = async () => {
       try {
         const [productsResponse, categoriesResponse] = await Promise.all([
-          axios.get('http://localhost:5000/api/product/getAllProducts'),
+          axios.get('http://localhost:5000/api/product/products'),
           // axios.get('http://localhost:5000/api/category/getAllCategories')
         ]);
         
@@ -64,7 +64,7 @@ export const Product = () => {
         
         setBidAmounts(prev => ({
           ...prev,
-          [updatedProduct._id]: updatedProduct.currentBid + 1000
+          [updatedProduct._id]: updatedProduct.currentBid + 500
         }));
       });
 
@@ -77,9 +77,9 @@ export const Product = () => {
   useEffect(() => {
     let result = [...products];
     
-    if (selectedCategory !== 'all') {
-      result = result.filter(product => product.category === selectedCategory);
-    }
+    // if (selectedCategory !== 'all') {
+    //   result = result.filter(product => product.category === selectedCategory);
+    // }
     
     switch (sortOption) {
       case 'newest':
@@ -103,7 +103,7 @@ export const Product = () => {
     
     setFilteredProducts(result);
     setCurrentPage(1);
-  }, [sortOption, selectedCategory, products]);
+  }, [sortOption,  products]);
 
   const indexOfLastProduct = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
@@ -119,8 +119,7 @@ export const Product = () => {
       [productId]: numericValue
     }));
   };
-
-  const placeBid = (productId, currentPrice) => {
+  const placeBid = async (productId, currentPrice) => {
     const token = localStorage.getItem('token') || 
                  JSON.parse(localStorage.getItem('user'))?.token;
     
@@ -128,17 +127,51 @@ export const Product = () => {
       navigate('/login');
       return;
     }
-
-    if (bidAmounts[productId] <= currentPrice) {
-      setError(`Та ${currentPrice}₮-аас дээш үнийн санал өгнө үү`);
-      return;
+  
+    try {
+      const response = await axios.post(
+        'http://localhost:5000/api/bidding/',
+        {
+          productId,
+          price: bidAmounts[productId]
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+  
+      if (response.data.sold) {
+        socket.emit('productSold', { 
+          productId,
+          buyerId: response.data.buyerId,
+          price: bidAmounts[productId]
+        });
+        alert(`Та энэ барааг ${bidAmounts[productId]}₮-р худалдан авлаа!`);
+      } else {
+        // Normal bid placement
+        socket.emit('bidUpdate', response.data.product);
+      }
+  
+      setProducts(prevProducts => 
+        prevProducts.map(product => 
+          product._id === productId ? response.data.product : product
+        )
+      );
+      
+      setFilteredProducts(prev => 
+        prev.map(product => 
+          product._id === productId ? response.data.product : product
+        )
+      );
+  
+      setError(null);
+  
+    } catch (error) {
+      console.error('Bidding error:', error);
+      setError(error.response?.data?.message || 'Үнийн санал өгөхөд алдаа гарлаа');
     }
-
-    socket.emit('placeBid', {
-      productId,
-      price: bidAmounts[productId],
-      token
-    });
   };
 
   if (loading) {
@@ -163,7 +196,7 @@ export const Product = () => {
             <div className="card-body">
               <div className="mb-4">
                 <h6 className="mb-3">Ангилал</h6>
-                <select 
+                {/* <select 
                   className="form-select"
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
@@ -174,7 +207,7 @@ export const Product = () => {
                       {category.name}
                     </option>
                   ))}
-                </select>
+                </select> */}
               </div>
 
               <div className="mb-4">
@@ -213,7 +246,7 @@ export const Product = () => {
                     <div className="card-body">
                       <h5 className="card-title">{product.title}</h5>
                       <p className="card-text text-muted small mb-2">
-                        {categories.find(c => c._id === product.category)?.name || 'Unknown Category'}
+                        {/* {categories.find(c => c._id === product.category)?.name || 'Unknown Category'} */}
                       </p>
                       <p className="card-text text-truncate">{product.description}</p>
                       <p className="text-muted fw-bold">Одоогийн үнэ: ₮{product.currentBid || product.price}</p>
@@ -228,7 +261,7 @@ export const Product = () => {
                               value={bidAmounts[product._id] || ''}
                               onChange={(e) => handleBidChange(product._id, e.target.value)}
                               min={(product.currentBid || product.price) + 1}
-                              step="1000"
+                              step="10"
                             />
                           </div>
                           <button 

@@ -3,63 +3,9 @@ const Product = require("../models/product");
 const slugify = require("slugify");
 const cloudinary = require("cloudinary").v2;
 const mongoose = require('mongoose');
-
 const postProduct = asyncHandler(async (req, res) => {
-
     const { 
-         title,
-         description, 
-         price, 
-         category, 
-         height, 
-         length,
-         width,
-         weight, } = req.body;
-    const userId = req.user.id;
-
-    const originalSlug = slugify(title, {
-        lower: true,
-        remove: /[*+~.()'"!:@]/g,
-        strict: true,
-    });
-    let slug = originalSlug
-    let suffix = 1
-
-    while(await Product.findOne({ slug })){
-        slug = `${originalSlug}-${suffix}`;
-        suffix++;
-    }
-
-    if(!title || !description || !price) {
-        res.status(400);
-        throw new Error("Бүрэн гүйцэд бөглөнө үү")
-    }
-    let fileData = {}
-    if(req.file) {
-        let uploadFile
-        try {
-            uploadFile = await cloudinary.uploader.upload(req.file.path,{
-                folder: "Bidding/Product",
-                resource_type: "image",
-            });
-        }catch(error){
-            console.log(error);
-            res.status(500);
-            throw new Error("Алдаа");
-
-        }
-        fileData = {
-            fileName: req.file.originalname,
-            filePath: uploadFile.secure_url,   
-            fileType: req.file.mimetype,
-            public_id: uploadFile.public_id,   
-        };
-    }
-
-    const product = await Product.create({
-        user: userId,
         title,
-        slug: slug,
         description, 
         price, 
         category, 
@@ -67,8 +13,77 @@ const postProduct = asyncHandler(async (req, res) => {
         length,
         width,
         weight,
+        bidThreshold, // New field
+        bidDeadline,  // New field
+    } = req.body;
+    
+    const userId = req.user.id;
+
+    // Validate required fields
+    if(!title || !description || !price || !bidDeadline) {
+        res.status(400);
+        throw new Error("Бүрэн гүйцэд бөглөнө үү");
+    }
+
+    // Validate bid deadline is in the future
+    if(new Date(bidDeadline) <= new Date()) {
+        res.status(400);
+        throw new Error("Дуусах хугацаа ирээдүйн огноо байх ёстой");
+    }
+
+    // Generate unique slug
+    const originalSlug = slugify(title, {
+        lower: true,
+        remove: /[*+~.()'"!:@]/g,
+        strict: true,
+    });
+    let slug = originalSlug;
+    let suffix = 1;
+
+    while(await Product.findOne({ slug })){
+        slug = `${originalSlug}-${suffix}`;
+        suffix++;
+    }
+
+    // Handle image upload
+    let fileData = {};
+    if(req.file) {
+        try {
+            const uploadFile = await cloudinary.uploader.upload(req.file.path, {
+                folder: "Bidding/Product",
+                resource_type: "image",
+            });
+            
+            fileData = {
+                fileName: req.file.originalname,
+                filePath: uploadFile.secure_url,   
+                fileType: req.file.mimetype,
+                public_id: uploadFile.public_id,   
+            };
+        } catch(error) {
+            console.log(error);
+            res.status(500);
+            throw new Error("Зураг хуулах явцад алдаа гарлаа");
+        }
+    }
+
+    // Create product with auction details
+    const product = await Product.create({
+        user: userId,
+        title,
+        slug,
+        description, 
+        price, 
+        category: category || "General",
+        height, 
+        length,
+        width,
+        weight,
+        bidThreshold: bidThreshold || null, // Optional threshold
+        bidDeadline: new Date(bidDeadline),
         image: fileData,
     });
+
     res.status(201).json({
         success: true,
         data: product,
@@ -78,6 +93,12 @@ const postProduct = asyncHandler(async (req, res) => {
 const getAllProducts = asyncHandler(async (req, res) => {
     
     const products = await Product.find({}).sort("-createdAt").populate("user");
+    res.json(products);
+});
+
+const getAllAvailableProducts = asyncHandler(async (req, res) => {
+    
+    const products = await Product.find({available: true}).sort("-createdAt").populate("user");
     res.json(products);
 });
 const deleteProduct = asyncHandler(async (req, res) => {
@@ -223,4 +244,5 @@ module.exports = {
     getAllProductsUser,
     getProduct,
     getAllSoldProduct,
+    getAllAvailableProducts,
 }

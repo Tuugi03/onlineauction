@@ -39,43 +39,18 @@ const io = socketio(server, {
     credentials: true
   }
 });
-
 io.on('connection', (socket) => {
-  console.log('New client connected');
-
-  socket.on('placeBid', async ({ productId, price, token }) => {
+  socket.on('productSold', async ({ productId }) => {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
       const product = await Product.findById(productId);
-      if (!product || product.isSold) {
-        socket.emit('bidError', {
-          productId,
-          message: 'Энэ бараанд үнэ санал болгох боломжгүй'
-        });
-        return;
-      }
-
-      const biddingProduct = await BiddingProduct.create({
-        user: decoded.id,
-        product: productId,
-        price
-      });
-
-      product.currentBid = price;
-      await product.save();
-
-      io.emit('bidUpdate', product);
-
+      io.emit('productUpdate', product);
     } catch (error) {
-      socket.emit('bidError', {
-        productId,
-        message: error.message || 'Үнийн санал өгөхөд алдаа гарлаа'
-      });
+      console.error('Error updating sold product:', error);
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('bidUpdate', (product) => {
+    io.emit('bidUpdate', product);
   });
 });
 

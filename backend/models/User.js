@@ -14,24 +14,33 @@ const userSchema = mongoose.Schema({
         type:String,
         require:[true, "нууц үгээ заавал бичээрэй"],
     },
+
     photo:{
-        type:String,
-        require:[true, ""],
-        default:"",
+        filePath: String,
+        public_id: String
+    },
+    phone:{
+        type: Number,
     },
     role:{
         type:String,
-        turul: ["admin", "seller", "buyer"],
+        turul: ["admin",  "buyer"],
         default: "buyer",
     },
-    commisisionBalance: {
-        type: Number,
-        default:0,
-    },
+
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
+      },
+
     balance: {
         type: Number,
         default: 0,
     },
+    resetPasswordToken: {type: String,},
+    
+resetPasswordExpires:{type:Date}
 },
 { timeStamp : true }
 );

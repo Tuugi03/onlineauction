@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --watchAll",
+    "test:cov": "jest --coverage"
   },
   "author": "",
   "license": "ISC",
@@ -15,17 +16,28 @@
     "cloudinary": "^2.5.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "express-async-handler": "^1.2.0",
+    "express-session": "^1.18.1",
+    "express-validator": "^7.2.1",
+    "google-auth-library": "^9.15.1",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.13.0",
     "mongoose": "^8.10.0",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.10.0",
     "nodemon": "^3.1.9",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "path": "^0.12.7",
     "slugify": "^1.6.6",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "mockingoose": "^2.16.2",
+    "mongodb-memory-server": "^10.1.4",
+    "supertest": "^7.1.0"
   }
 }

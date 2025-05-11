@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-
+const cron = require('node-cron');
 const productSchema = mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
@@ -17,8 +17,8 @@ const productSchema = mongoose.Schema({
     },
     description: {
         type: String,
-        required: true,
-        trim: true
+        required: false,
+        trim: true,
     },
     image: {
         type: Object,
@@ -90,37 +90,33 @@ const productSchema = mongoose.Schema({
     toObject: { virtuals: true }
 });
 
-// Text index for search
 productSchema.index({ 
     title: 'text', 
     description: 'text',
     category: 'text'
 });
 
-// Middleware to check if bid meets threshold
 productSchema.pre('save', function(next) {
-    // Check if current bid meets or exceeds threshold
+    const now = new Date();
+    
     if (this.bidThreshold && this.currentBid >= this.bidThreshold) {
         this.sold = true;
         this.soldTo = this.highestBidder;
         this.available = false;
     }
     
-    // Check if bid deadline has passed
-    if ((this.bidDeadline && new Date() > this.bidDeadline) || this.sold) {
+    if (this.bidDeadline && now > this.bidDeadline) {
         this.available = false;
     }
     
     next();
 });
 
-// Virtual for time remaining
 productSchema.virtual('timeRemaining').get(function() {
     if (!this.bidDeadline) return null;
     return this.bidDeadline - new Date();
 });
 
-// Static method to update expired auctions
 productSchema.statics.updateExpiredAuctions = async function() {
     const now = new Date();
     await this.updateMany(

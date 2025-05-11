@@ -3,91 +3,102 @@ const Product = require("../models/product");
 const slugify = require("slugify");
 const cloudinary = require("cloudinary").v2;
 const mongoose = require('mongoose');
+Product.updateExpiredAuctions();
 const postProduct = asyncHandler(async (req, res) => {
-    const { 
-        title,
-        description, 
-        price, 
-        category, 
-        height, 
-        length,
-        width,
-        weight,
-        bidThreshold, // New field
-        bidDeadline,  // New field
-    } = req.body;
+    const session = await mongoose.startSession();
+    session.startTransaction();
     
-    const userId = req.user.id;
+    try {
+        
+        const { 
+            title,
+            description, 
+            price, 
+            category, 
+            height, 
+            length,
+            width,
+            weight,
+            bidThreshold, 
+            bidDeadline, 
+        } = req.body;
+        
+        const userId = req.user.id;
 
-    // Validate required fields
-    if(!title || !description || !price || !bidDeadline) {
-        res.status(400);
-        throw new Error("Бүрэн гүйцэд бөглөнө үү");
-    }
-
-    // Validate bid deadline is in the future
-    if(new Date(bidDeadline) <= new Date()) {
-        res.status(400);
-        throw new Error("Дуусах хугацаа ирээдүйн огноо байх ёстой");
-    }
-
-    // Generate unique slug
-    const originalSlug = slugify(title, {
-        lower: true,
-        remove: /[*+~.()'"!:@]/g,
-        strict: true,
-    });
-    let slug = originalSlug;
-    let suffix = 1;
-
-    while(await Product.findOne({ slug })){
-        slug = `${originalSlug}-${suffix}`;
-        suffix++;
-    }
-
-    // Handle image upload
-    let fileData = {};
-    if(req.file) {
-        try {
-            const uploadFile = await cloudinary.uploader.upload(req.file.path, {
-                folder: "Bidding/Product",
-                resource_type: "image",
-            });
-            
-            fileData = {
-                fileName: req.file.originalname,
-                filePath: uploadFile.secure_url,   
-                fileType: req.file.mimetype,
-                public_id: uploadFile.public_id,   
-            };
-        } catch(error) {
-            console.log(error);
-            res.status(500);
-            throw new Error("Зураг хуулах явцад алдаа гарлаа");
+        if(!title || !description || !price || !bidDeadline) {
+            throw new Error("Бүрэн гүйцэд бөглөнө үү");
         }
+
+        if(new Date(bidDeadline) <= new Date()) {
+            throw new Error("Дуусах хугацаа ирээдүйн огноо байх ёстой");
+        }
+
+        const originalSlug = slugify(title, { lower: true, strict: true });
+        let slug = originalSlug;
+        let suffix = 1;
+
+        while(await Product.findOne({ slug }).session(session)) {
+            slug = `${originalSlug}-${suffix}`;
+            suffix++;
+        }
+        console.log('Final slug:', slug);
+
+        let fileData = {};
+        if(req.file) {
+            console.log('Uploading image to Cloudinary...');
+            try {
+                const uploadFile = await cloudinary.uploader.upload(req.file.path, {
+                    folder: "Bidding/Product",
+                    resource_type: "image",
+                });
+                
+                fileData = {
+                    fileName: req.file.originalname,
+                    filePath: uploadFile.secure_url,   
+                    fileType: req.file.mimetype,
+                    public_id: uploadFile.public_id,   
+                };
+                console.log('Image uploaded:', fileData);
+            } catch(error) {
+                console.error('Cloudinary error:', error);
+                throw new Error("Зураг хуулах явцад алдаа гарлаа");
+            }
+        }
+
+        const [product] = await Product.create([{
+            user: userId,
+            title,
+            slug,
+            description, 
+            price, 
+            category: category || "General",
+            height, 
+            length,
+            width,
+            weight,
+            bidThreshold: bidThreshold || null,
+            bidDeadline: new Date(bidDeadline),
+            image: fileData,
+        }], { session });
+
+        await session.commitTransaction();
+        session.endSession();
+        console.log('Product created successfully:', product._id);
+
+        res.status(201).json({
+            success: true,
+            data: product,
+        });
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error('Product creation failed:', error);
+        
+        res.status(error.statusCode || 500).json({
+            success: false,
+            error: error.message || 'Internal server error'
+        });
     }
-
-    // Create product with auction details
-    const product = await Product.create({
-        user: userId,
-        title,
-        slug,
-        description, 
-        price, 
-        category: category || "General",
-        height, 
-        length,
-        width,
-        weight,
-        bidThreshold: bidThreshold || null, // Optional threshold
-        bidDeadline: new Date(bidDeadline),
-        image: fileData,
-    });
-
-    res.status(201).json({
-        success: true,
-        data: product,
-    });
 });
 
 const getAllProducts = asyncHandler(async (req, res) => {
@@ -95,11 +106,36 @@ const getAllProducts = asyncHandler(async (req, res) => {
     const products = await Product.find({}).sort("-createdAt").populate("user");
     res.json(products);
 });
-
 const getAllAvailableProducts = asyncHandler(async (req, res) => {
-    
-    const products = await Product.find({available: true}).sort("-createdAt").populate("user");
-    res.json(products);
+    try {
+        const { search, category } = req.query;
+        const query = { available: true, sold: false, }; 
+        
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
+        if (category) {
+            query.$or = [
+                { category: category },
+                { 'category._id': category }
+            ];
+        }
+        
+        const products = await Product.find(query)
+            .populate('user')
+            .populate('category', 'title _id')
+            .sort({ createdAt: -1 });
+        
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ 
+            message: error.message || "Error fetching available products"
+        });
+    }
 });
 const deleteProduct = asyncHandler(async (req, res) => {
    const { id } = req.params;
@@ -179,9 +215,9 @@ const updateProduct = asyncHandler(async (req, res) => {
     
        fileData = {
            fileName: req.file.originalname,
-           filePath: uploadFile.secure_url,   // Changed from uploadedFile to uploadFile
+           filePath: uploadFile.secure_url,   
            fileType: req.file.mimetype,
-           public_id: uploadFile.public_id,   // Changed from uploadedFile to uploadFile
+           public_id: uploadFile.public_id,   
        };
    }
 
@@ -209,15 +245,33 @@ const updateProduct = asyncHandler(async (req, res) => {
    );
 });
 const getAllProductsUser = asyncHandler(async (req, res) => {
-
     const userId = req.user._id;
-
-    const products = await Product.find({ User: userId })
+    const { search } = req.query;
+  
+    let query = { user: userId };
+  
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+  
+    const products = await Product.find(query)
       .sort("-createdAt")
       .populate("user");
-
+  
     res.json(products);
-});
+  });
+
+const getAllProductsAdmin = async (req, res) => {
+    try {
+        const products = await Product.find({ user: req.params.userId });
+        res.json(products);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+  };
 
 
 const getProduct = asyncHandler(async (req, res) => {
@@ -245,4 +299,5 @@ module.exports = {
     getProduct,
     getAllSoldProduct,
     getAllAvailableProducts,
+    getAllProductsAdmin,
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import "bootstrap/dist/css/bootstrap.min.css";
 import { Link, useNavigate } from 'react-router-dom';
@@ -11,7 +11,94 @@ export const Login = () => {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState('');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Load Google Client ID and initialize
+  useEffect(() => {
+    const loadGoogleScript = () => {
+      if (document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        console.log('Google script loaded');
+      };
+      script.onerror = () => {
+        console.error('Failed to load Google script');
+      };
+      document.body.appendChild(script);
+    };
+
+    const loadGoogleClientId = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/users/google/client-id');
+        setGoogleClientId(response.data.clientId);
+        console.log('Google Client ID loaded:', response.data.clientId);
+        loadGoogleScript();
+      } catch (error) {
+        console.error('Failed to load Google Client ID:', error);
+      }
+    };
+
+    loadGoogleClientId();
+
+    return () => {
+      const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (script) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (googleClientId && window.google) {
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleResponse
+      });
+
+      window.google.accounts.id.renderButton(
+        document.getElementById('googleSignInButton'),
+        { 
+          theme: 'outline', 
+          size: 'large',
+          width: '400'
+        }
+      );
+    }
+  }, [googleClientId]);
+
+  const handleGoogleResponse = async (response) => {
+    setIsGoogleLoading(true);
+    setErrors({});
+
+    try {
+      const authResponse = await axios.post('http://localhost:5000/api/users/google', {
+        credential: response.credential
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true
+      });
+
+      if (authResponse.status === 200) {
+        localStorage.setItem('user', JSON.stringify(authResponse.data));
+        window.dispatchEvent(new Event("userLogin"));
+        navigate("/");
+      }
+    } catch (error) {
+      setErrors({
+        submit: error.response?.data?.message || 'Google нэвтрэлт амжилтгүй боллоо'
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -26,7 +113,6 @@ export const Login = () => {
       });
     }
   };
-
 
   const validateForm = () => {
     const newErrors = {};
@@ -62,7 +148,7 @@ export const Login = () => {
 
       if (response.status === 200) {
         localStorage.setItem('user', JSON.stringify(response.data));
-        console.log("amjilttai");
+        window.dispatchEvent(new Event("userLogin"));
         navigate("/");
       }
     } catch (error) {
@@ -111,6 +197,24 @@ export const Login = () => {
                 <div className="alert alert-danger">{errors.submit}</div>
               )}
 
+              {/* Google Sign-In Section */}
+              <div className="mb-4">
+                <div className="text-center mb-3">
+                  <div id="googleSignInButton" className="d-inline-block"></div>
+                  {isGoogleLoading && (
+                    <div className="mt-2">
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      Google-ээр нэвтэрч байна...
+                    </div>
+                  )}
+                </div>
+                <div className="d-flex align-items-center mb-3">
+                  <hr className="flex-grow-1" />
+                  <span className="mx-3">Эсвэл</span>
+                  <hr className="flex-grow-1" />
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit}>
                 <div className="mb-3">
                   <label htmlFor="email" className="form-label">Email</label>
@@ -144,20 +248,25 @@ export const Login = () => {
                   )}
                 </div>
 
-                <div className="mb-3 form-check">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    id="rememberMe"
-                  />
-                  <label className="form-check-label" htmlFor="rememberMe">
-                    Хадгалах
-                  </label>
+                <div className="mb-3 d-flex justify-content-between align-items-center">
+                  <div className="form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="rememberMe"
+                    />
+                    <label className="form-check-label" htmlFor="rememberMe">
+                      Намайг сана
+                    </label>
+                  </div>
+                  <Link to="/forgot-password" className="text-decoration-none">
+                    Нууц үг мартсан?
+                  </Link>
                 </div>
 
                 <button
                   type="submit"
-                  className="btn btn-primary w-100"
+                  className="btn btn-primary w-100 mb-3"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -167,16 +276,11 @@ export const Login = () => {
                     </>
                   ) : 'Нэвтрэх'}
                 </button>
-              </form>
 
-              <div className="mt-3 text-center">
-                <Link to="/" className="text-decoration-none d-block mb-2">
-                  Нууц үг сэргээх
-                </Link>
-                <Link to="/register" className="text-decoration-none">
-                  Бүртгэл үүсгэх
-                </Link>
-              </div>
+                <div className="text-center">
+                  <p className="mb-0">Бүртгэлгүй юу? <Link to="/register" className="text-decoration-none">Бүртгүүлэх</Link></p>
+                </div>
+              </form>
             </div>
           </div>
         </div>

@@ -41,7 +41,7 @@ export const Admin = () => {
     weight: '',
     bidThreshold: '', 
     bidDeadline: '', 
-    image: null,
+    images: [],
   });
 
   const [activeTab, setActiveTab] = useState('myProducts'); 
@@ -115,12 +115,38 @@ export const Admin = () => {
     };
   
     getMyProducts();
-  }, [debouncedSearchTerm, navigate]); // Add debouncedSearchTerm as dependency
+  }, [debouncedSearchTerm, navigate]); 
   
-  const handleSearch1 = () => {
-    // Trigger search by updating debounced term
-    setDebouncedSearchTerm(searchTerm);
-  };
+
+    const handleSellProduct = async (productId, currentBid) => {
+      const token = JSON.parse(localStorage.getItem('user'))?.token;
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+    
+      try {
+        const confirmSale = window.confirm(`Та энэ барааг ${currentBid}₮-р зарахад итгэлтэй байна уу?`);
+        if (!confirmSale) return;
+    
+        const response = await axios.post(
+          'http://localhost:5000/api/bidding/sell',
+          { productId, price: currentBid },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+    
+        if (response.data.sold) {
+          alert(`Бараа амжилттай зарагдлаа! Гүйлгээний дугаар: ${response.data.transactionId}`);
+          const productsResponse = await axios.get('http://localhost:5000/api/product/my', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setProducts(productsResponse.data);
+        }
+      } catch (error) {
+        console.error('Sell product error:', error);
+        alert(error.response?.data?.message || 'Бараа зарах явцад алдаа гарлаа');
+      }
+    };
   useEffect(() => {
   const fetchCategories = async () => {
     try {
@@ -245,77 +271,113 @@ export const Admin = () => {
   }, [activeTab]);
 
 
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
+const handleChange = (e) => {
+  const { name, value, files } = e.target;
+  
+  if (name === 'images') {
+    if (files && files.length > 0) {
+      const validFiles = Array.from(files).filter(file => 
+        file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024 
+      );
+      
+      if (validFiles.length !== files.length) {
+        alert('Зөвхөн зураг файл (JPG, PNG) оруулна уу. Файлын хэмжээ 5MB-аас ихгүй байх ёстой.');
+      }
+      
+      const imagePreviews = validFiles.map(file => ({
+        file,
+        preview: URL.createObjectURL(file)
+      }));
+      
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, ...imagePreviews]
+      }));
+    }
+  } else {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+};
+
+const removeImage = (index) => {
+  setFormData(prev => {
+    const newImages = [...prev.images];
+    URL.revokeObjectURL(newImages[index].preview);
+    newImages.splice(index, 1);
+    return { ...prev, images: newImages };
+  });
+};
+
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setUploading(true);
+  
+  if (!formData.title || !formData.description || !formData.price || !formData.bidDeadline) {
+    alert('Бүх шаардлагатай талбарыг бөглөнө үү');
+    setUploading(false);
+    return;
+  }
+
+  if (formData.images.length === 0) {
+    alert('Хамгийн багадаа 1 зураг оруулна уу');
+    setUploading(false);
+    return;
+  }
+
+  if (new Date(formData.bidDeadline) <= new Date()) {
+    alert('Дуудлагын дуусах хугацаа ирээдүйд байх ёстой');
+    setUploading(false);
+    return;
+  }
+
+  try {
+    const token = JSON.parse(localStorage.getItem('user'))?.token;
+    const formDataToSend = new FormData();
     
-    if (name === 'image') {
-      if (files && files[0]) {
-        if (!files[0].type.startsWith('image/')) {
-          alert('Please upload an image file');
-          return;
-        }
-        setFormData({ ...formData, image: files[0] });
+    Object.keys(formData).forEach(key => {
+      if (key !== 'images' && formData[key] !== '') {
+        formDataToSend.append(key, formData[key]);
       }
-    } else {
-      setFormData({ ...formData, [name]: value });
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setUploading(true);
-  
-    if (!formData.title || !formData.description || !formData.price) {
-      alert('Please fill in all required fields');
-      setUploading(false);
-      return;
-    }
-
-    if (formData.bidDeadline && new Date(formData.bidDeadline) <= new Date()) {
-      alert('Auction end date must be in the future');
-      setUploading(false);
-      return;
-    }
-
-    const data = new FormData();
-    for (const key in formData) {
-      if (formData[key] !== null && formData[key] !== '') {
-        data.append(key, formData[key]);
-      }
-    }
-  
-    try {
-      const token = JSON.parse(localStorage.getItem('user'))?.token;
-      await axios.post('http://localhost:5000/api/product/', data, {
+    });
+    
+    formData.images.forEach((imageObj, index) => {
+      formDataToSend.append(`images`, imageObj.file); 
+    });
+    
+    const response = await axios.post(
+      'http://localhost:5000/api/product/', 
+      formDataToSend,
+      {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`,
         },
-      });
-  
-      alert('Амжилттай!');
-      setFormData({
-        ...formData,
-        title: '',
-        description: '',
-        price: '',
-        height: '',
-        length: '',
-        width: '',
-        weight: '',
-        bidThreshold: '',
-        bidDeadline: '',
-        image: null,
-      });
-      
-    } catch (error) {
-      console.error('Error submitting:', error);
-      alert('Something went wrong. Maybe try again?');
-    } finally {
-      setUploading(false);
-    }
-  };
+      }
+    );
 
+    alert('Бараа амжилттай нэмэгдлээ!');
+    setFormData({
+      title: '',
+      description: '',
+      price: '',
+      category: '',
+      height: '',
+      length: '',
+      width: '',
+      weight: '',
+      bidThreshold: '',
+      bidDeadline: '',
+      images: [],
+    });
+    console.log(formData)
+    
+  } catch (error) {
+    console.error('Error submitting:', error);
+    alert(error.response?.data?.message || 'Алдаа гарлаа. Дахин оролдоно уу?');
+  } finally {
+    setUploading(false);
+  }
+};
   if (!user) {
     return (
       <div className="container mt-5 text-center">
@@ -389,7 +451,6 @@ export const Admin = () => {
              </div>
            </div>
          </div>
-         {/* Add Balance Modal */}
 {showAddBalanceModal && (
   <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
     <div className="modal-dialog">
@@ -521,14 +582,9 @@ export const Admin = () => {
                    </ul>
                  </div>
                </div>
-   
-               {/* Quick Stats */}
-             
              </div>
    
-             {/* Main Content */}
              <div className="col-md-9">
-               {/* Add Product Form */}
                {activeTab === 'addProduct' && (
                  <div className="card shadow-sm border-0 mb-4">
                    <div className="card-body p-4">
@@ -677,58 +733,79 @@ export const Admin = () => {
                            </div>
                          </div>
    
-                         <div className="col-12">
-                           <div className="image-upload-container border rounded p-4 text-center">
-                             <label htmlFor="imageUpload" className="upload-label">
-                               <div className="upload-content">
-                                 <div className="upload-icon mb-3">
-                                   <i className="bi bi-cloud-arrow-up fs-1 text-muted"></i>
-                                 </div>
-                                 <h6>Зураг оруулах</h6>
-                                 <p className="text-muted mb-0">JPG, PNG форматаар (5MB хүртэл)</p>
-                               </div>
-                               <input
-                                 type="file"
-                                 id="imageUpload"
-                                 className="d-none"
-                                 name="image"
-                                 onChange={handleChange}
-                                 accept="image/*"
-                               />
-                             </label>
-                             {formData.image && (
-                               <div className="image-preview mt-3">
-                                 <span className="badge bg-success">
-                                   {formData.image.name} <BsCheckCircleFill className="ms-1" />
-                                 </span>
-                               </div>
-                             )}
-                           </div>
-                         </div>
+                          <div className="col-12">
+  <div className="image-upload-container border rounded p-4">
+    <label htmlFor="imageUpload" className="upload-label">
+      <div className="upload-content">
+        <div className="upload-icon mb-3">
+          <i className="bi bi-cloud-arrow-up fs-1 text-muted"></i>
+        </div>
+        <h6>Зураг оруулах</h6>
+        <p className="text-muted mb-0">JPG, PNG форматаар (5MB хүртэл)</p>
+        <p className="text-muted small">Хамгийн багадаа 1 зураг оруулна уу</p>
+      </div>
+      <input
+        type="file"
+        id="imageUpload"
+        className="d-none"
+        name="images"
+        onChange={handleChange}
+        accept="image/*"
+        multiple // Allow multiple file selection
+      />
+    </label>
+    
+    {/* Image previews */}
+    {formData.images.length > 0 && (
+      <div className="mt-3">
+        <h6 className="mb-2">Оруулсан зурагнууд:</h6>
+        <div className="d-flex flex-wrap gap-2">
+          {formData.images.map((image, index) => (
+            <div key={index} className="position-relative" style={{ width: '100px' }}>
+              <img 
+                src={image.preview} 
+                alt={`Preview ${index}`}
+                className="img-thumbnail"
+                style={{ height: '100px', objectFit: 'cover' }}
+              />
+              <button
+                type="button"
+                className="btn btn-danger btn-sm position-absolute top-0 end-0"
+                onClick={() => removeImage(index)}
+                style={{ transform: 'translate(50%, -50%)' }}
+              >
+                &times;
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+
+                      <div className="col-12 mt-4">
+                        <button 
+                          type="submit" 
+                          className="btn btn-primary py-3 w-100"
+                          disabled={uploading}
+                        >
+                          {uploading ? (
+                            <>
+                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                              Хадгалж байна...
+                            </>
+                          ) : (
+                            'Бараа нэмэх'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
    
-                         <div className="col-12 mt-4">
-                           <button 
-                             type="submit" 
-                             className="btn btn-primary py-3 w-100"
-                             disabled={uploading}
-                           >
-                             {uploading ? (
-                               <>
-                                 <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                 Хадгалж байна...
-                               </>
-                             ) : (
-                               'Бараа нэмэх'
-                             )}
-                           </button>
-                         </div>
-                       </div>
-                     </form>
-                   </div>
-                 </div>
-               )}
-   
-               {/* My Products */}
                {activeTab === 'myProducts' && (
                  <div className="card shadow-sm border-0 mb-4">
                    <div className="card-body">
@@ -782,7 +859,7 @@ export const Admin = () => {
                          {products.map((product) => (
                            <div className="col" key={product._id}>
                              <div className="card h-100 product-card">
-                               {product.image && (
+                               {product.images && (
                                  <img 
                                    src={product.image} 
                                    className="card-img-top product-image" 

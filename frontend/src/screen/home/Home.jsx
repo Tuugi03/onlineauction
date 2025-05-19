@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 export const Home = () => {
   const navigate = useNavigate();
   
-  // State for auctions data
   const [endingSoonAuctions, setEndingSoonAuctions] = useState([]);
   const [newAuctions, setNewAuctions] = useState([]);
   const [allProducts, setAllProducts] = useState([]);
@@ -21,7 +20,6 @@ export const Home = () => {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
 
-  // Fetch all data
   useEffect(() => {
     const fetchAllData = async () => {
       try {
@@ -32,7 +30,6 @@ export const Home = () => {
 
         const now = new Date();
         
-        // Process products
         const endingSoon = productsResponse.data.filter(product => {
           const endTime = new Date(product.bidDeadline);
           return endTime > now && endTime - now < 24 * 60 * 60 * 1000;
@@ -57,7 +54,6 @@ export const Home = () => {
     fetchAllData();
   }, []);
 
-  // Search functionality
   const handleSearchSubmit = () => {
     if (searchQuery.trim()) {
       navigate(`/allproduct?search=${encodeURIComponent(searchQuery)}`);
@@ -91,7 +87,6 @@ export const Home = () => {
     setSearchQuery("");
   };
 
-  // Auction Card Component
   const AuctionCard = ({ auction }) => {
     const endTime = new Date(auction.bidDeadline);
     const now = new Date();
@@ -103,7 +98,7 @@ export const Home = () => {
         <div className="card h-100 auction-card shadow-sm hover-effect">
           <div className="card-image-container">
             <img 
-              src={auction.image?.filePath || '\default.png'} 
+              src={auction.images?.find(img => img.isPrimary)?.url || '/default.png'}
               className="card-img-top" 
               alt={auction.title}
               loading="lazy"
@@ -143,7 +138,6 @@ export const Home = () => {
     );
   };
 
-  // Category Card Component
   const CategoryCard = ({ category }) => {
     const categoryProducts = allProducts.filter(p => p.category === category._id);
     
@@ -195,7 +189,6 @@ export const Home = () => {
 
   return (
     <div className="home-page">
-      {/* Hero Section */}
       <section className="hero-section py-5 bg-gradient-primary text-white">
         <div className="container py-5">
           <div className="row align-items-center">
@@ -207,7 +200,6 @@ export const Home = () => {
                 Шилдэг бараануудыг хамгийн хямд үнээр авах боломж. Бидэнтэй хамт амжилттай худалдаа хийх цаг боллоо!
               </p>
               
-              {/* Search Bar */}
               <div className="search-container mb-4 position-relative">
                 <div className="input-group search-group shadow-lg">
                   <span className="input-group-text bg-white border-0">
@@ -234,7 +226,6 @@ export const Home = () => {
                   </button>
                 </div>
 
-                {/* Search Results Dropdown */}
                 {showResults && searchQuery.length > 0 && (
                   <div className="search-results-container shadow-lg rounded-bottom">
                     {searchResults.length > 0 ? (
@@ -290,7 +281,7 @@ export const Home = () => {
               <div className="hero-image-container position-relative">
                 <div className="hero-main-image">
                   <img 
-                    src="https://images.unsplash.com/photo-1585518419759-7fe2e0fbf8a6?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
+                    src="home.jpg" 
                     alt="Auction" 
                     className="img-fluid rounded-3 shadow"
                   />

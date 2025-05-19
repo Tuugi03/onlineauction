@@ -42,24 +42,7 @@ const getCategory = asyncHandler(async (req, res) => {
     }
 });
 
-const updateCategory = asyncHandler(async (req, res) => {
-    const {id} = req.params;
 
-    try{
-        const category = await Category.findByIdAndUpdate(id,{
-            title: req?.body?.title,
-        },{
-            new:true,
-            runValidators: true,
-
-        });
-        res.json(category);
-    }catch(error){
-        res.json(error);
-
-    }
-
-});
 
 const deleteCategory = asyncHandler(async (req, res) => {
     const {id} = req.params;
@@ -76,6 +59,5 @@ module.exports = {
     createCategory,
     getAllCategories,
     getCategory,
-    updateCategory,
     deleteCategory
 }

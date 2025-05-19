@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FiUser, FiShoppingBag, FiPlusCircle, FiClock, FiCreditCard, FiSettings,FiCamera, FiSearch,} from 'react-icons/fi';
+import { FiUser, FiShoppingBag, FiPlusCircle, FiClock, FiCreditCard, FiSettings,FiCamera, FiRefreshCw, FiSearch,} from 'react-icons/fi';
 import { BsArrowRightShort, BsCheckCircleFill } from 'react-icons/bs';
 import "../../index.css";
 
@@ -20,6 +20,13 @@ export const Profile = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('myProducts');
+  const [qpayInvoice, setQpayInvoice] = useState({
+  urls: [],
+  qr_image: ''
+});
+const [showAllBanks, setShowAllBanks] = useState(false);
+const [paymentStatus, setPaymentStatus] = useState(null);
+
 
   const [formData, setFormData] = useState({
     title: '',
@@ -32,7 +39,7 @@ export const Profile = () => {
     weight: '',
     bidThreshold: '', 
     bidDeadline: '', 
-    image: null,
+    images: [],
   });
 
   const navigate = useNavigate();
@@ -99,34 +106,26 @@ export const Profile = () => {
   const handleSearch = () => {
     setDebouncedSearchTerm(searchTerm);
   };
+const handleRecharge = async (e) => {
+  e.preventDefault();
+  setRechargeError(null);
+  setRechargeSuccess(false);
+  setRechargeLoading(true);
 
-  const handleRecharge = async (e) => {
-    e.preventDefault();
-    setRechargeError('');
-    setRechargeSuccess(false);
-    setRechargeLoading(true);
-  
-    try {
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`, 
-        },
-      };
-  
-      const { data } = await axios.post('http://localhost:5000/api/request/add', { amount: rechargeAmount }, config);
-      setUser(prev => ({ ...prev, balance: data.newBalance }));
-      setRechargeSuccess(true);
-      setRechargeAmount(''); 
-    } catch (error) {
-      setRechargeError(
-        error.response?.data?.message || 'Алдаа гарлаа. Дахин оролдоно уу.'
-      );
-    } finally {
-      setRechargeLoading(false);
-    }
-  };
+  try {
+    const response = await axios.post(
+      'http://localhost:5000/api/request/',
+      { amount: rechargeAmount },
+      { headers: { Authorization: `Bearer ${user.token}` } }
+    );
 
+    setQpayInvoice(response.data);
+    setRechargeLoading(false);
+  } catch (error) {
+    setRechargeError(error.response?.data?.message || 'Төлбөрийн системд алдаа гарлаа');
+    setRechargeLoading(false);
+  }
+};
   const handleSellProduct = async (productId, currentBid) => {
     const token = JSON.parse(localStorage.getItem('user'))?.token;
     if (!token) {
@@ -156,22 +155,42 @@ export const Profile = () => {
       alert(error.response?.data?.message || 'Бараа зарах явцад алдаа гарлаа');
     }
   };
-
-  const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    
-    if (name === 'image') {
-      if (files && files[0]) {
-        if (!files[0].type.startsWith('image/')) {
-          alert('Зөвхөн зураг оруулна уу');
-          return;
-        }
-        setFormData({ ...formData, image: files[0] });
+const handleChange = (e) => {
+  const { name, value, files } = e.target;
+  
+  if (name === 'images') {
+    if (files && files.length > 0) {
+      const validFiles = Array.from(files).filter(file => 
+        file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024 
+      );
+      
+      if (validFiles.length !== files.length) {
+        alert('Зөвхөн зураг файл (JPG, PNG) оруулна уу. Файлын хэмжээ 5MB-аас ихгүй байх ёстой.');
       }
-    } else {
-      setFormData({ ...formData, [name]: value });
+      
+      const imagePreviews = validFiles.map(file => ({
+        file,
+        preview: URL.createObjectURL(file)
+      }));
+      
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, ...imagePreviews]
+      }));
     }
-  };
+  } else {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+};
+
+const removeImage = (index) => {
+  setFormData(prev => {
+    const newImages = [...prev.images];
+    URL.revokeObjectURL(newImages[index].preview);
+    newImages.splice(index, 1);
+    return { ...prev, images: newImages };
+  });
+};
   const handleDeleteProduct = async (productId) => {
     if (window.confirm('Та энэ барааг устгахдаа итгэлтэй байна уу?')) {
       try {
@@ -249,60 +268,76 @@ export const Profile = () => {
     }
   }, [activeTab]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setUploading(true);
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setUploading(true);
   
-    if (!formData.title || !formData.description || !formData.price) {
-      alert('Бүх шаардлагатай талбарыг бөглөнө үү');
-      setUploading(false);
-      return;
-    }
+  if (!formData.title || !formData.description || !formData.price || !formData.bidDeadline) {
+    alert('Бүх шаардлагатай талбарыг бөглөнө үү');
+    setUploading(false);
+    return;
+  }
 
-    if (formData.bidDeadline && new Date(formData.bidDeadline) <= new Date()) {
-      alert('Дуудлагын дуусах хугацаа ирээдүйд байх ёстой');
-      setUploading(false);
-      return;
-    }
+  if (formData.images.length === 0) {
+    alert('Хамгийн багадаа 1 зураг оруулна уу');
+    setUploading(false);
+    return;
+  }
 
-    const data = new FormData();
-    for (const key in formData) {
-      if (formData[key] !== null && formData[key] !== '') {
-        data.append(key, formData[key]);
+  if (new Date(formData.bidDeadline) <= new Date()) {
+    alert('Дуудлагын дуусах хугацаа ирээдүйд байх ёстой');
+    setUploading(false);
+    return;
+  }
+
+  try {
+    const token = JSON.parse(localStorage.getItem('user'))?.token;
+    const formDataToSend = new FormData();
+    
+    Object.keys(formData).forEach(key => {
+      if (key !== 'images' && formData[key] !== '') {
+        formDataToSend.append(key, formData[key]);
       }
-    }
-  
-    try {
-      const token = JSON.parse(localStorage.getItem('user'))?.token;
-      await axios.post('http://localhost:5000/api/product/', data, {
+    });
+    
+    formData.images.forEach((imageObj, index) => {
+      formDataToSend.append(`images`, imageObj.file); 
+    });
+    
+    const response = await axios.post(
+      'http://localhost:5000/api/product/', 
+      formDataToSend,
+      {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`,
         },
-      });
-  
-      alert('Бараа амжилттай нэмэгдлээ!');
-      setFormData({
-        title: '',
-        description: '',
-        price: '',
-        category: '',
-        height: '',
-        length: '',
-        width: '',
-        weight: '',
-        bidThreshold: '',
-        bidDeadline: '',
-        image: null,
-      });
-      
-    } catch (error) {
-      console.error('Error submitting:', error);
-      alert('Алдаа гарлаа. Дахин оролдоно уу?');
-    } finally {
-      setUploading(false);
-    }
-  };
+      }
+    );
+
+    alert('Бараа амжилттай нэмэгдлээ!');
+    setFormData({
+      title: '',
+      description: '',
+      price: '',
+      category: '',
+      height: '',
+      length: '',
+      width: '',
+      weight: '',
+      bidThreshold: '',
+      bidDeadline: '',
+      images: [],
+    });
+    console.log(formData)
+    
+  } catch (error) {
+    console.error('Error submitting:', error);
+    alert(error.response?.data?.message || 'Алдаа гарлаа. Дахин оролдоно уу?');
+  } finally {
+    setUploading(false);
+  }
+};
   const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -471,10 +506,9 @@ export const Profile = () => {
               </div>
             </div>
 
-            {/* Quick Stats */}
             <div className="card shadow-sm border-0 mb-4">
               <div className="card-body">
-                <h6 className="card-title text-muted mb-3">Миний статистик</h6>
+                <h6 className="card-title text-muted mb-3">Миний мэдээлэл</h6>
                 <div className="stat-item d-flex justify-content-between mb-2">
                   <span>Бараа</span>
                   <span className="fw-bold">{products.length}</span>
@@ -640,34 +674,56 @@ export const Profile = () => {
                         </div>
                       </div>
 
-                      <div className="col-12">
-                        <div className="image-upload-container border rounded p-4 text-center">
-                          <label htmlFor="imageUpload" className="upload-label">
-                            <div className="upload-content">
-                              <div className="upload-icon mb-3">
-                                <i className="bi bi-cloud-arrow-up fs-1 text-muted"></i>
-                              </div>
-                              <h6>Зураг оруулах</h6>
-                              <p className="text-muted mb-0">JPG, PNG форматаар (5MB хүртэл)</p>
-                            </div>
-                            <input
-                              type="file"
-                              id="imageUpload"
-                              className="d-none"
-                              name="image"
-                              onChange={handleChange}
-                              accept="image/*"
-                            />
-                          </label>
-                          {formData.image && (
-                            <div className="image-preview mt-3">
-                              <span className="badge bg-success">
-                                {formData.image.name} <BsCheckCircleFill className="ms-1" />
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                     <div className="col-12">
+  <div className="image-upload-container border rounded p-4">
+    <label htmlFor="imageUpload" className="upload-label">
+      <div className="upload-content">
+        <div className="upload-icon mb-3">
+          <i className="bi bi-cloud-arrow-up fs-1 text-muted"></i>
+        </div>
+        <h6>Зураг оруулах</h6>
+        <p className="text-muted mb-0">JPG, PNG форматаар (5MB хүртэл)</p>
+        <p className="text-muted small">Хамгийн багадаа 1 зураг оруулна уу</p>
+      </div>
+      <input
+        type="file"
+        id="imageUpload"
+        className="d-none"
+        name="images"
+        onChange={handleChange}
+        accept="image/*"
+        multiple // Allow multiple file selection
+      />
+    </label>
+    
+    {/* Image previews */}
+    {formData.images.length > 0 && (
+      <div className="mt-3">
+        <h6 className="mb-2">Оруулсан зурагнууд:</h6>
+        <div className="d-flex flex-wrap gap-2">
+          {formData.images.map((image, index) => (
+            <div key={index} className="position-relative" style={{ width: '100px' }}>
+              <img 
+                src={image.preview} 
+                alt={`Preview ${index}`}
+                className="img-thumbnail"
+                style={{ height: '100px', objectFit: 'cover' }}
+              />
+              <button
+                type="button"
+                className="btn btn-danger btn-sm position-absolute top-0 end-0"
+                onClick={() => removeImage(index)}
+                style={{ transform: 'translate(50%, -50%)' }}
+              >
+                &times;
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</div>
 
                       <div className="col-12 mt-4">
                         <button 
@@ -861,7 +917,6 @@ export const Profile = () => {
                             <th>Бараа</th>
                             <th>Үнэ</th>
                             <th>Худалдагч</th>
-                            <th>Статус</th>
                             <th>Огноо</th>
                           </tr>
                         </thead>
@@ -886,15 +941,7 @@ export const Profile = () => {
                               </td>
                               <td className="fw-bold text-primary">{transaction.amount}₮</td>
                               <td>{transaction.seller?.name || 'Unknown Seller'}</td>
-                              <td>
-                                <span className={`badge ${
-                                  transaction.status === 'completed' ? 'bg-success' : 
-                                  transaction.status === 'pending' ? 'bg-warning text-dark' : 
-                                  'bg-secondary'
-                                }`}>
-                                  {transaction.status}
-                                </span>
-                              </td>
+                             
                               <td className="text-muted small">
                                 {new Date(transaction.createdAt).toLocaleDateString()}
                                 <br />
@@ -909,93 +956,109 @@ export const Profile = () => {
                 </div>
               </div>
             )}
+{activeTab === '' && (
+  <div className="card shadow-sm border-0 mb-4">
+    <div className="card-body">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h4 className="mb-0">
+          <FiCreditCard className="me-2" />
+          Данс цэнэглэх
+        </h4>
+        <span className="badge bg-primary rounded-pill">
+          {user.balance?.toFixed(2) || '0.00'}₮
+        </span>
+      </div>
+      
+      <div className="row">
+        <div className="col-md-6">
+          <form onSubmit={handleRecharge}>
+            <div className="mb-3">
+              <label className="form-label">Цэнэглэх дүн (₮)</label>
+              <div className="input-group">
+                <span className="input-group-text bg-primary text-white">₮</span>
+                <input
+                  type="number"
+                  className="form-control"
+                  value={rechargeAmount}
+                  onChange={(e) => setRechargeAmount(e.target.value)}
+                  min="1000"
+                  step="1000"
+                  required
+                  placeholder="1000, 5000, 10000..."
+                />
+              </div>
+              <div className="form-text">Хамгийн бага дүн: 1,000₮</div>
+            </div>
 
-            {activeTab === '' && (
-              <div className="card shadow-sm border-0 mb-4">
-                <div className="card-body">
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h4 className="mb-0">
-                      <FiCreditCard className="me-2" />
-                      Данс цэнэглэх
-                    </h4>
-                    <span className="badge bg-primary rounded-pill">
-                      {user.balance?.toFixed(2) || '0.00'}₮
-                    </span>
-                  </div>
-                  
-                  <div className="row">
-                    <div className="col-md-6">
-                      <form onSubmit={handleRecharge}>
-                        <div className="mb-3">
-                          <label className="form-label">Цэнэглэх дүн (₮)</label>
-                          <div className="input-group">
-                            <span className="input-group-text bg-primary text-white">₮</span>
-                            <input
-                              type="number"
-                              className="form-control"
-                              value={rechargeAmount}
-                              onChange={(e) => setRechargeAmount(e.target.value)}
-                              min="1000"
-                              step="1000"
-                              required
-                              placeholder="1000, 5000, 10000..."
-                            />
-                          </div>
-                          <div className="form-text">Хамгийн бага дүн: 1,000₮</div>
-                        </div>
+            {rechargeError && (
+              <div className="alert alert-danger">{rechargeError}</div>
+            )}
 
-                        {rechargeError && (
-                          <div className="alert alert-danger">{rechargeError}</div>
-                        )}
-
-                        {rechargeSuccess && (
-                          <div className="alert alert-success">
-                            Амжилттай цэнэглэгдлээ! Таны шинэ үлдэгдэл: {user.balance?.toFixed(2)}₮
-                          </div>
-                        )}
-
-                        <button 
-                          type="submit" 
-                          className="btn btn-primary w-100 py-3"
-                          disabled={rechargeLoading}
-                        >
-                          {rechargeLoading ? (
-                            <>
-                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                              Цэнэглэж байна...
-                            </>
-                          ) : (
-                            'Данс цэнэглэх'
-                          )}
-                        </button>
-                      </form>
-                    </div>
-
-                    <div className="col-md-6">
-                      <div className="card bg-light border-0">
-                        <div className="card-body">
-                          <h5 className="card-title text-muted mb-3">Төлбөрийн сонголтууд</h5>
-                          <div className="payment-methods">
-                            <div className="payment-method d-flex align-items-center mb-3 p-3 bg-white rounded">
-                              <img 
-                                src="/khaanbank.jpg" 
-                                alt="Khan Bank" 
-                                className="me-3"
-                                style={{ width: '40px' }}
-                              />
-                              <div>
-                                <h6 className="mb-1">Хаан банк</h6>
-                                <small className="text-muted">Картаар төлбөр хийх</small>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {rechargeSuccess && (
+              <div className="alert alert-success">
+                Амжилттай цэнэглэгдлээ! Таны шинэ үлдэгдэл: {user.balance?.toFixed(2)}₮
               </div>
             )}
+
+            <button 
+              type="submit" 
+              className="btn btn-primary w-100 py-3"
+              disabled={rechargeLoading}
+            >
+              {rechargeLoading ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                  Цэнэглэж байна...
+                </>
+              ) : (
+                'QPay-р данс цэнэглэх'
+              )}
+            </button>
+          </form>
+        </div>
+
+        <div className="col-md-6">
+         {qpayInvoice && (
+  <div className="card bg-light border-0 mb-3">
+    <div className="card-body text-center">
+      <h5 className="card-title mb-3">QPay</h5>
+      
+      {qpayInvoice.payment?.qr_image && (
+        <div className="mb-3">
+          <img 
+            src={`data:image/png;base64,${qpayInvoice.payment.qr_image}`} 
+            alt="QPay QR Code" 
+            className="img-fluid mb-2"
+            style={{ maxWidth: '200px' }}
+          />
+          <p className="text-muted small">QR кодыг уншуулна уу</p>
+        </div>
+      )}
+      
+      
+    </div>
+  </div>
+)}
+          {!qpayInvoice && (
+            <div className="card bg-light border-0">
+              <div className="card-body text-center">
+                <img 
+                  src="/qpay-logo.png" 
+                  alt="QPay" 
+                  style={{ height: '40px', marginBottom: '15px' }}
+                />
+                <h5 className="card-title text-muted mb-3">QPay төлбөрийн систем</h5>
+                <p className="text-muted small">
+                  Дээрх дүнг оруулаад "QPay-р данс цэнэглэх" товчийг дарна уу
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
             {activeTab === 'profile' && (
               <div className="card shadow-sm border-0 mb-4">
                 <div className="card-body">

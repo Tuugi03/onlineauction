@@ -3,22 +3,35 @@ const mongoose = require('mongoose');
 const requestSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    required: true,
+    ref: 'User'
   },
-
   amount: {
     type: Number,
     required: true,
     min: 5000
   },
-
-  createdAt: {
-    type: Date,
-    default: Date.now
+  status: {
+    type: String,
+    enum: ['pending', 'completed'],
+    default: 'pending'
+  },
+  payment: {
+    invoiceId: String,
+    qrText: String,
+    qrImage: String,
+    urls: [{
+      name: String,
+      description: String,
+      logo: String,
+      link: String
+    }],
+    status: {
+      type: String,
+      enum: ['pending', 'paid', 'expired', 'failed'],
+      default: 'pending'
+    }
   }
-  
-},
-{ timeStamp : true });
+}, { timestamps: true });
 
 module.exports = mongoose.model('Request', requestSchema);

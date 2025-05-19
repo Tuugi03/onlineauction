@@ -349,13 +349,11 @@ const updateUserPhoto = asyncHandler(async (req, res) => {
 
     let fileData = {};
     if (req.file) {
-      // Upload to Cloudinary
       const uploadResult = await cloudinary.uploader.upload(req.file.path, {
         folder: "Bidding/UserAvatars",
         resource_type: "image",
       });
 
-      // Delete old photo if exists
       if (user.photo?.public_id) {
         await cloudinary.uploader.destroy(user.photo.public_id);
       }

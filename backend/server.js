@@ -16,14 +16,13 @@ const io = socketio(server, {
 });
 
 io.on('connection', (socket) => {
-  console.log('A user connected');
 
   socket.on('productSold', async ({ productId }) => {
     try {
       const product = await Product.findById(productId);
       io.emit('productUpdate', product);
     } catch (error) {
-      console.error('Error updating sold product:', error);
+      console.error('Алдаа:', error);
     }
   });
 
@@ -32,13 +31,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('startAuctionCountdown', ({ productId, deadline }) => {
-    // Clear any existing timer for this product
     if (activeAuctions[productId]) {
       clearInterval(activeAuctions[productId]);
       delete activeAuctions[productId];
     }
 
-    // Start a new timer for this product
     const broadcastTime = () => {
       const now = new Date();
       const end = new Date(deadline);
@@ -61,19 +58,14 @@ io.on('connection', (socket) => {
       }
     };
 
-    // Initial broadcast
     broadcastTime();
     
-    // Set up interval for this product
     activeAuctions[productId] = setInterval(broadcastTime, 1000);
   });
 
-  socket.on('disconnect', () => {
-    console.log('A user disconnected');
-  });
+
 });
 
-// Database connection and server start
 mongoose.connect(process.env.DATABASE_CLOUD)
   .then(() => {
     server.listen(process.env.PORT || 5000, () => {

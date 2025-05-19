@@ -12,8 +12,6 @@ const protect = asyncHandler(async (req, res, next) => {
     }
   
     if(!token) {
-
-      
       res.status(401);
       throw new Error("Та нэвтэрсэний дараа энэ үйлдэлийг хийнэ үү");
     }
@@ -40,7 +38,7 @@ const admin = (req, res, next) =>{
 
     }else{
         res.status(403);
-        throw new Error("zowhon admin erh");
+        throw new Error("Та админ эрхээр нэвтрэнэ үү");
     }
 }
 

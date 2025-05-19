@@ -1,11 +1,18 @@
-const express = require("express");
-const {getRequests,addRequest, deleteRequest} = require("../controllers/requestController");
-const { protect, admin } = require("../middleware/authMiddleware");
+const express = require('express');
 const router = express.Router();
+const {
+  getRequests,
+  addRequest,
+  deleteRequest,
+} = require('../controllers/requestController');
+const { protect } = require('../middleware/authMiddleware');
 
-router.get("/", protect, admin, getRequests);
-router.post("/add", protect, addRequest);
-router.delete("/:id", protect,admin, deleteRequest );
+router.route('/')
+  .get(protect, getRequests)
+  .post(protect, addRequest);
+
+router.route('/:id')
+  .delete(protect, deleteRequest);
 
 
 module.exports = router;

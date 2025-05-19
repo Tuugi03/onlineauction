@@ -20,9 +20,17 @@ const productSchema = mongoose.Schema({
         required: false,
         trim: true,
     },
-    image: {
-        type: Object,
-        default: {}
+   images: {
+        type: [{
+            url: String,
+            publicId: String,
+            isPrimary: {
+                type: Boolean,
+                default: false 
+            }
+        }],
+        validate: [arrayLimit],
+        default: []
     },
     category: {
         type: String,
@@ -37,10 +45,9 @@ const productSchema = mongoose.Schema({
         type: Number,
         required: true
     },
-    // New: The threshold amount that instantly wins the auction
     bidThreshold: {
         type: Number,
-        default: null  // null means no threshold (regular auction)
+        default: null  
     },
     height: {
         type: Number
@@ -89,6 +96,9 @@ const productSchema = mongoose.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true }
 });
+function arrayLimit(val) {
+    return val.length <= 3;
+}
 
 productSchema.index({ 
     title: 'text', 

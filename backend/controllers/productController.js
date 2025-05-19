@@ -2,13 +2,11 @@ const asyncHandler = require("express-async-handler");
 const Product = require("../models/product");
 const slugify = require("slugify");
 const cloudinary = require("cloudinary").v2;
-const mongoose = require('mongoose');
+const fs = require('fs');
 Product.updateExpiredAuctions();
 const postProduct = asyncHandler(async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
     try {
+        console.log('Request files:', req.files); // Debug log
         
         const { 
             title,
@@ -25,47 +23,85 @@ const postProduct = asyncHandler(async (req, res) => {
         
         const userId = req.user.id;
 
+        // Validation
         if(!title || !description || !price || !bidDeadline) {
-            throw new Error("Бүрэн гүйцэд бөглөнө үү");
+            return res.status(400).json({
+                success: false,
+                error: "Бүрэн гүйцэд бөглөнө үү"
+            });
         }
 
-        if(new Date(bidDeadline) <= new Date()) {
-            throw new Error("Дуусах хугацаа ирээдүйн огноо байх ёстой");
+        const deadlineDate = new Date(bidDeadline);
+        if(deadlineDate <= new Date()) {
+            return res.status(400).json({
+                success: false,
+                error: "Дуусах хугацаа ирээдүйн огноо байх ёстой"
+            });
         }
 
+        // Generate unique slug
         const originalSlug = slugify(title, { lower: true, strict: true });
         let slug = originalSlug;
         let suffix = 1;
 
-        while(await Product.findOne({ slug }).session(session)) {
-            slug = `${originalSlug}-${suffix}`;
-            suffix++;
-        }
-        console.log('Final slug:', slug);
-
-        let fileData = {};
-        if(req.file) {
-            console.log('Uploading image to Cloudinary...');
-            try {
-                const uploadFile = await cloudinary.uploader.upload(req.file.path, {
-                    folder: "Bidding/Product",
-                    resource_type: "image",
-                });
-                
-                fileData = {
-                    fileName: req.file.originalname,
-                    filePath: uploadFile.secure_url,   
-                    fileType: req.file.mimetype,
-                    public_id: uploadFile.public_id,   
-                };
-                console.log('Image uploaded:', fileData);
-            } catch(error) {
-                console.error('Cloudinary error:', error);
-                throw new Error("Зураг хуулах явцад алдаа гарлаа");
+        let existingProduct;
+        do {
+            existingProduct = await Product.findOne({ slug });
+            if (existingProduct) {
+                slug = `${originalSlug}-${suffix}`;
+                suffix++;
             }
-        }
+        } while (existingProduct);
 
-        const [product] = await Product.create([{
+     // Handle file uploads
+let fileData = [];
+if(req.files && req.files.length > 0) {
+  console.log(`Processing ${req.files.length} images`);
+  
+  for (const file of req.files) {
+    try {
+      console.log(`Uploading ${file.originalname} to Cloudinary`);
+      const uploadFile = await cloudinary.uploader.upload(file.path, {
+        folder: "Bidding/Product",
+        resource_type: "image",
+      });
+
+      fileData.push({
+        url: uploadFile.secure_url,
+        publicId: uploadFile.public_id,
+        isPrimary: fileData.length === 0,
+      });
+
+      // Clean up the uploaded file
+      try {
+        await fs.promises.unlink(file.path);
+        console.log(`Successfully uploaded and cleaned up ${file.originalname}`);
+      } catch (cleanupError) {
+        console.error(`Error cleaning up file ${file.originalname}:`, cleanupError);
+      }
+    } catch (error) {
+      console.error(`Failed to upload ${file.originalname}:`, error);
+      
+      // Clean up any remaining files
+      await Promise.all(req.files.map(async (f) => {
+        if (fs.existsSync(f.path)) {
+          try {
+            await fs.promises.unlink(f.path);
+          } catch (err) {
+            console.error(`Error cleaning up file ${f.originalname}:`, err);
+          }
+        }
+      }));
+      
+      return res.status(500).json({
+        success: false,
+        error: `Image upload failed: ${error.message}`
+      });
+    }
+  }
+}
+        // Create product
+        const product = await Product.create({
             user: userId,
             title,
             slug,
@@ -77,30 +113,33 @@ const postProduct = asyncHandler(async (req, res) => {
             width,
             weight,
             bidThreshold: bidThreshold || null,
-            bidDeadline: new Date(bidDeadline),
-            image: fileData,
-        }], { session });
+            bidDeadline: deadlineDate,
+            images: fileData,
+        });
 
-        await session.commitTransaction();
-        session.endSession();
         console.log('Product created successfully:', product._id);
-
         res.status(201).json({
             success: true,
             data: product,
         });
+
     } catch (error) {
-        await session.abortTransaction();
-        session.endSession();
         console.error('Product creation failed:', error);
         
-        res.status(error.statusCode || 500).json({
+        if (req.files) {
+            req.files.forEach(file => {
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
+            });
+        }
+
+        res.status(500).json({
             success: false,
             error: error.message || 'Internal server error'
         });
     }
 });
-
 const getAllProducts = asyncHandler(async (req, res) => {
     
     const products = await Product.find({}).sort("-createdAt").populate("user");
@@ -151,9 +190,9 @@ const deleteProduct = asyncHandler(async (req, res) => {
     throw new Error("алдаа");
    }
 
-   if(product.image && product.image.public_id) {
+   if(product.images && product.image.public_id) {
     try{
-        await cloudinary.uploader.destroy(product.image.public_id)
+        await cloudinary.uploader.destroy(product.images.public_id)
     }catch(error) {
         console.log(error);
         res.status(500);
@@ -189,7 +228,7 @@ const updateProduct = asyncHandler(async (req, res) => {
     throw new Error("алдаа");
    }
 
-   let fileData = {}
+   let fileData = [];
    if(req.file) {
        let uploadFile
        try {
@@ -203,9 +242,9 @@ const updateProduct = asyncHandler(async (req, res) => {
            throw new Error("Алдаа");
 
        }
-       if(product.image && product.image.public_id) {
+       if(product.images && product.images.public_id) {
         try{
-            await cloudinary.uploader.destroy(product.image.public_id)
+            await cloudinary.uploader.destroy(product.images.public_id)
         }catch(error) {
             console.log(error);
             res.status(500);
@@ -234,7 +273,7 @@ const updateProduct = asyncHandler(async (req, res) => {
        length,
        width,
        weight,
-       image: Object.keys(fileData).length === 0 ? Product?.image : fileData,
+       images: Object.keys(fileData).length === 0 ? Product?.images : fileData,
    },{
     new: true,
     runValidators: true,

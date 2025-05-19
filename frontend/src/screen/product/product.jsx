@@ -364,17 +364,6 @@ export const Product = () => {
                     <option value="ending-soon">Дуусах хугацааны дараалал</option>
                   </select>
                 </div>
-                
-                <button 
-                  className="btn btn-outline-secondary w-100"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedCategory('all');
-                    navigate(location.pathname, { replace: true });
-                  }}
-                >
-                  Цэвэрлэх
-                </button>
               </div>
             </div>
           </div>
@@ -416,17 +405,6 @@ export const Product = () => {
                   <option value="ending-soon">Дуусах хугацааны дараалал</option>
                 </select>
               </div>
-              
-              <button 
-                className="btn btn-outline-secondary w-100"
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('all');
-                  navigate(location.pathname, { replace: true });
-                }}
-              >
-                Цэвэрлэх
-              </button>
             </div>
           </div>
         </div>
@@ -488,7 +466,7 @@ export const Product = () => {
                   <div className="card h-100 shadow-sm border-0 overflow-hidden">
                     <div className="position-relative">
                       <img 
-                        src={product.image?.filePath || '/default.png'} 
+                        src={product.images?.find(img => img.isPrimary)?.url || '/default.png'}
                         className="card-img-top" 
                         alt={product.title}
                         style={{ height: '200px', objectFit: 'cover' }}

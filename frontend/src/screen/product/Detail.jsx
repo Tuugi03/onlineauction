@@ -18,12 +18,23 @@ export const Details = () => {
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [bidError, setBidError] = useState(null);
   const [isUserOutbid, setIsUserOutbid] = useState(false); 
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const getAuthToken = () => {
     const user = JSON.parse(localStorage.getItem('user'));
     return user?.token || localStorage.getItem('token');
   };
-
+  
+  const nextImage = () => {
+    setCurrentImageIndex(prev => 
+      (prev + 1) % productDetails.images.length
+    );
+  };
+  const prevImage = () => {
+    setCurrentImageIndex(prev => 
+      (prev - 1 + productDetails.images.length) % productDetails.images.length
+    );
+  };
   useEffect(() => {
     const socket = io('http://localhost:5000', {
       withCredentials: true,
@@ -214,9 +225,9 @@ export const Details = () => {
     return (
       <div className="container my-5">
         <div className="alert alert-info">
-          <h5>Ийм бараа олдсонгүй</h5>
+          <h5>Product not found</h5>
           <Link to="/products" className="btn btn-outline-primary">
-            Бусад барааг үзэх
+            View other products
           </Link>
         </div>
       </div>
@@ -229,13 +240,77 @@ export const Details = () => {
         <div className="col-lg-8">
           <div className="card mb-4 shadow-sm">
             <div className="row g-0">
-              <div className="col-md-6">
-                <img 
-                  src={productDetails.image?.filePath || '/default.png'} 
-                  className="img-fluid rounded-start product-detail-image" 
-                  alt={productDetails.title}
-                />
+              <div className="col-md-6 position-relative">
+                <div 
+                  id="productCarousel" 
+                  className="carousel slide"
+                  style={{ height: '100%' }}
+                >
+                  <div className="carousel-inner" style={{ height: '100%' }}>
+                    {productDetails.images.map((image, index) => (
+                      <div 
+                        key={index}
+                        className={`carousel-item ${index === currentImageIndex ? 'active' : ''}`}
+                        style={{ height: '100%' }}
+                      >
+                        <img
+                          src={image.url || '/default.png'}
+                          className="d-block w-100"
+                          alt={`Product view ${index + 1}`}
+                          style={{
+                            height: '400px',
+                            objectFit: 'contain',
+                            backgroundColor: '#f8f9fa'
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {productDetails.images.length > 1 && (
+                    <>
+                      <button 
+                        className="carousel-control-prev"
+                        type="button"
+                        onClick={prevImage}
+                        style={{ width: '40px' }}
+                      >
+                        <span className="carousel-control-prev-icon bg-dark rounded-circle p-2"></span>
+                      </button>
+                      <button 
+                        className="carousel-control-next"
+                        type="button"
+                        onClick={nextImage}
+                        style={{ width: '40px' }}
+                      >
+                        <span className="carousel-control-next-icon bg-dark rounded-circle p-2"></span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {productDetails.images.length > 1 && (
+                  <div className="carousel-indicators position-static mt-2">
+                    {productDetails.images.map((_, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        className={`mx-1 ${index === currentImageIndex ? 'active' : ''}`}
+                        style={{
+                          width: '10px',
+                          height: '10px',
+                          borderRadius: '50%',
+                          border: 'none',
+                          backgroundColor: index === currentImageIndex ? '#0d6efd' : '#6c757d'
+                        }}
+                        onClick={() => setCurrentImageIndex(index)}
+                      ></button>
+                    ))}
+                  </div>
+                )}
               </div>
+              
+
               
               <div className="col-md-6">
                 <div className="card-body">
@@ -400,8 +475,10 @@ export const Details = () => {
                         <img 
                           src={product.image?.filePath || '/default.png'} 
                           alt={product.title}
-                          className="rounded me-3 product-thumbnail"
+                          className="rounded me-3"
+                          style={{ width: '60px', height: '60px', objectFit: 'cover' }}
                         />
+
                         <div>
                           <h3 className="h6 mb-1">{product.title}</h3>
                           <div className="d-flex justify-content-between">

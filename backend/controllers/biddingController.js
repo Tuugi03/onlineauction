@@ -55,7 +55,7 @@ const placeBid = asyncHandler(async (req, res) => {
           await sendEmail({
               email: seller.email,
               subject: "Бараа амжилттай зарагдлаа",
-              html: `Таны "${product.title}" бараа ${price} төгрөгөөр зарагдлаа.`
+              html: `Таны "${product.title}" бараа ${price} төгрөгөөр ${buyer.email}-email тэй ${buyer.name} хэрэглэгчид зарагдлаа.`
           });
 
           return res.status(200).json({ 
@@ -203,7 +203,8 @@ const sellProduct = asyncHandler(async (req, res) => {
         sendEmail({
           email: seller.email,
           subject: "Бараа амжилттай зарагдлаа",
-          html: `Таны "<strong>${product.title}</strong>" бараа <strong>${price}₮</strong>-р амжилттай зарагдлаа.`
+          html: `Таны "${product.title}" бараа ${price} төгрөгөөр ${buyer.email}-email тэй ${buyer.name} хэрэглэгчид зарагдлаа.`
+
         })
       ]);
     } catch (emailError) {

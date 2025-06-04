@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon server.js",
-    "test": "jest product.test.js",
+    "test": "jest bidding.test.js",
     "test:cov": "jest --coverage"
   },
   "author": "",

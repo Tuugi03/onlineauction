@@ -473,7 +473,7 @@ export const Details = () => {
                     >
                       <div className="d-flex align-items-center">
                         <img 
-                          src={product.image?.filePath || '/default.png'} 
+                          src={product.images?.find(img => img.isPrimary)?.url || '/default.png'}
                           alt={product.title}
                           className="rounded me-3"
                           style={{ width: '60px', height: '60px', objectFit: 'cover' }}

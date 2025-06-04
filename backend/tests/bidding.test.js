@@ -53,7 +53,7 @@ describe('Bidding Controller', () => {
   });
 
   describe('getBiddingHistory', () => {
-    it('should return bidding history for a product', async () => {
+    it('Үнийн саналын түүхийг буцаах', async () => {
       const mockHistory = [mockBid];
       BiddingProduct.find.mockReturnValue({
         sort: jest.fn().mockReturnThis(),
@@ -72,7 +72,7 @@ describe('Bidding Controller', () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
-    it('should handle errors when fetching history', async () => {
+    it('fetch хийх үеийн алдаа зохицуулах', async () => {
       BiddingProduct.find.mockImplementation(() => {
         throw new Error('Database error');
       });

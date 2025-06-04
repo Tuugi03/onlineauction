@@ -1,9 +1,10 @@
-// server.js
 const dotenv = require('dotenv').config();
 const mongoose = require('mongoose');
 const http = require('http');
 const socketio = require('socket.io');
 const app = require('./app'); 
+const jwt = require('jsonwebtoken');
+
 
 const server = http.createServer(app);
 const activeAuctions = {};
@@ -16,6 +17,17 @@ const io = socketio(server, {
 });
 
 io.on('connection', (socket) => {
+  const token = socket.handshake.query.token;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+
+    console.log(` User ${socket.userId} connected socket ${socket.id}`);
+  } catch (err) {
+    console.error(' Invalid token:', err.message);
+    socket.disconnect();
+  }
 
   socket.on('productSold', async ({ productId }) => {
     try {

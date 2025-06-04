@@ -34,16 +34,19 @@ export const Product = () => {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
+useEffect(() => {
+  const token = getAuthToken(); 
 
-  useEffect(() => {
-    const newSocket = io('http://localhost:5000', {
-      withCredentials: true,
-      transports: ['websocket']
-    });
-    setSocket(newSocket);
+  const newSocket = io('http://localhost:5000', {
+    withCredentials: true,
+    transports: ['websocket'],
+    query: { token }
+  });
 
-    return () => newSocket.disconnect();
-  }, []);
+  setSocket(newSocket);
+
+  return () => newSocket.disconnect();
+}, []);
 
   useEffect(() => {
     const fetchData = async () => {

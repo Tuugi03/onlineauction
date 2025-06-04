@@ -328,9 +328,9 @@ const googleLogin = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Google authentication error:', error);
+    console.error('Алдаа:', error);
     res.status(401);
-    throw new Error("Google authentication failed");
+    throw new Error("Алдаа");
   }
 });
 
@@ -364,7 +364,6 @@ const updateUserPhoto = asyncHandler(async (req, res) => {
       };
     }
 
-    // Update user photo
     user.photo = fileData;
     await user.save();
 
@@ -400,7 +399,5 @@ module.exports = {registerUser,
     getGoogleClientId,
     updateUserPhoto,
     pendingVerifications
-    
-
     
 };

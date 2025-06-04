@@ -24,9 +24,6 @@ export const Profile = () => {
   urls: [],
   qr_image: ''
 });
-const [showAllBanks, setShowAllBanks] = useState(false);
-const [paymentStatus, setPaymentStatus] = useState(null);
-
 
   const [formData, setFormData] = useState({
     title: '',
@@ -613,27 +610,6 @@ const removeImage = (index) => {
                         </div>
                       </div>
 
-                      {['height', 'length', 'width', 'weight'].map(field => (
-                        <div className="col-md-6" key={field}>
-                          <div className="form-floating">
-                            <input
-                              type="number"
-                              className="form-control"
-                              id={field}
-                              name={field}
-                              value={formData[field]}
-                              onChange={handleChange}
-                              placeholder=" "
-                              min={0}
-                            />
-                            <label htmlFor={field}>
-                              {field === 'height' ? 'Өндөр (см)' :
-                              field === 'length' ? 'Урт (см)' :
-                              field === 'width' ? 'Өргөн (см)' : 'Жин (кг)'}
-                            </label>
-                          </div>
-                        </div>
-                      ))}
 
                       <div className="col-12 mt-3">
                         <h5 className="section-title mb-3 text-primary">
@@ -653,7 +629,7 @@ const removeImage = (index) => {
                             min="0"
                             placeholder=" "
                           />
-                          <label htmlFor="bidThreshold">Хамгийн бага үнэ</label>
+                          <label htmlFor="bidThreshold">Таны хүссэн үнэ</label>
                         </div>
                       </div>
 
